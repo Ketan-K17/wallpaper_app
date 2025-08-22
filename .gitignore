@@ -1,0 +1,5 @@
+.env
+ai_wallpaper_venv/
+gemini_api_key_testing/images/
+
+notes.txt
