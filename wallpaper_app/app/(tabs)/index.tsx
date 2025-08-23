@@ -111,6 +111,10 @@ export default function HomeScreen() {
     router.push(`/wallpaper/${id}`);
   };
 
+  const goToGenerate = () => {
+    router.push('/(tabs)/generate');
+  };
+
   const renderWallpaper = ({ item }: { item: typeof wallpapers[0] }) => (
     <TouchableOpacity
       style={[styles.wallpaperItem, { backgroundColor: colors.card }]}
@@ -173,7 +177,6 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.greeting, { color: colors.placeholder }]}>Hello there!</Text>
           <Text style={[styles.title, { color: colors.text }]}>Discover Wallpapers</Text>
         </View>
         <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]}>
@@ -192,6 +195,23 @@ export default function HomeScreen() {
           onChangeText={handleSearch}
         />
       </View>
+
+      {/* Create Your Own Panel */}
+      <TouchableOpacity style={[styles.createPanel, { backgroundColor: colors.primary }]} onPress={goToGenerate}>
+        <LinearGradient
+          colors={[colors.primary, colors.secondary]}
+          style={styles.createPanelGradient}
+        >
+          <View style={styles.createPanelContent}>
+            <Text style={styles.createPanelIcon}>✨</Text>
+            <View style={styles.createPanelText}>
+              <Text style={styles.createPanelTitle}>Create Your Own!</Text>
+              <Text style={styles.createPanelSubtitle}>Generate custom wallpapers with AI</Text>
+            </View>
+            <Text style={styles.createPanelArrow}>→</Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
 
       {/* Categories */}
       <FlatList
@@ -264,6 +284,42 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
+  },
+  createPanel: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  createPanelGradient: {
+    padding: 20,
+  },
+  createPanelContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createPanelIcon: {
+    fontSize: 32,
+    marginRight: 16,
+  },
+  createPanelText: {
+    flex: 1,
+  },
+  createPanelTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  createPanelSubtitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    opacity: 0.9,
+  },
+  createPanelArrow: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: 'bold',
   },
   categoriesContainer: {
     paddingHorizontal: 20,
