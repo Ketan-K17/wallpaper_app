@@ -1,26 +1,43 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Wallpaper App Color Scheme - Orange and Black Theme
  */
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+const primaryOrange = '#FF6B35';
+const secondaryOrange = '#FF8C42';
+const darkOrange = '#E55A2B';
+const lightOrange = '#FFB892';
+
+const primaryBlack = '#1A1A1A';
+const secondaryBlack = '#2A2A2A';
+const lightBlack = '#3A3A3A';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: primaryBlack,
+    background: '#FFFFFF',
+    card: '#F8F8F8',
+    tint: primaryOrange,
+    icon: lightBlack,
+    tabIconDefault: lightBlack,
+    tabIconSelected: primaryOrange,
+    primary: primaryOrange,
+    secondary: secondaryOrange,
+    accent: darkOrange,
+    border: '#E5E5E5',
+    placeholder: '#888888',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#FFFFFF',
+    background: primaryBlack,
+    card: secondaryBlack,
+    tint: primaryOrange,
+    icon: '#CCCCCC',
+    tabIconDefault: '#888888',
+    tabIconSelected: primaryOrange,
+    primary: primaryOrange,
+    secondary: secondaryOrange,
+    accent: lightOrange,
+    border: lightBlack,
+    placeholder: '#666666',
   },
 };

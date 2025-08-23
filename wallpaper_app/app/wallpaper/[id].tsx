@@ -1,143 +1,247 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Dimensions, Share } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
+  StatusBar,
+  ScrollView,
+  Share,
+} from 'react-native';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system';
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 const { width, height } = Dimensions.get('window');
 
+// Mock wallpaper data
+const wallpapers = {
+  '1': {
+    id: '1',
+    title: 'Abstract Orange',
+    author: 'Design Studio',
+    url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400&h=800&fit=crop',
+    downloads: 1234,
+    likes: 567,
+    category: 'Abstract',
+    resolution: '4K',
+  },
+  '2': {
+    id: '2',
+    title: 'Dark Minimal',
+    author: 'Creative Team',
+    url: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=400&h=800&fit=crop',
+    downloads: 2341,
+    likes: 892,
+    category: 'Minimal',
+    resolution: '4K',
+  },
+  '3': {
+    id: '3',
+    title: 'Gradient Flow',
+    author: 'Art Collective',
+    url: 'https://images.unsplash.com/photo-1557264305-7e2764da873b?w=400&h=800&fit=crop',
+    downloads: 3456,
+    likes: 1234,
+    category: 'Gradient',
+    resolution: '4K',
+  },
+};
+
 export default function WallpaperDetailScreen() {
-  const params = useLocalSearchParams();
-  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const { id } = useLocalSearchParams();
   const [downloading, setDownloading] = useState(false);
+  const [liked, setLiked] = useState(false);
 
-  const { id, url, title, downloads } = params;
+  const wallpaper = wallpapers[id as keyof typeof wallpapers];
 
-  const downloadWallpaper = async () => {
+  if (!wallpaper) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={[styles.errorText, { color: colors.text }]}>Wallpaper not found</Text>
+      </View>
+    );
+  }
+
+  const handleDownload = async () => {
     try {
       setDownloading(true);
-      
+
       // Request permissions
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission required', 'Please grant permission to save wallpapers');
+        Alert.alert('Permission Required', 'Please grant permission to save wallpapers');
         return;
       }
 
       // Download the image
-      const downloadResult = await FileSystem.downloadAsync(
-        url as string,
-        FileSystem.documentDirectory + `wallpaper_${id}.jpg`
-      );
+      const fileUri = FileSystem.documentDirectory + `wallpaper_${wallpaper.id}.jpg`;
+      const downloadResult = await FileSystem.downloadAsync(wallpaper.url, fileUri);
 
       // Save to media library
       await MediaLibrary.saveToLibraryAsync(downloadResult.uri);
-      
+
       Alert.alert('Success', 'Wallpaper saved to your gallery!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to download wallpaper. Please try again.');
+      Alert.alert('Error', 'Failed to download wallpaper');
+      console.error('Download error:', error);
     } finally {
       setDownloading(false);
     }
   };
 
-  const shareWallpaper = async () => {
+  const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out this amazing wallpaper: ${title}`,
-        url: url as string,
+        message: `Check out this amazing wallpaper: ${wallpaper.title}`,
+        url: wallpaper.url,
       });
     } catch (error) {
-      console.error('Error sharing:', error);
+      console.error('Share error:', error);
     }
   };
 
+  const handleLike = () => {
+    setLiked(!liked);
+  };
+
+  const goBack = () => {
+    router.back();
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" />
+      
+      {/* Wallpaper Image */}
       <View style={styles.imageContainer}>
         <Image
-          source={{ uri: url as string }}
+          source={{ uri: wallpaper.url }}
           style={styles.wallpaperImage}
           contentFit="cover"
         />
         
+        {/* Overlay Gradient */}
         <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.7)']}
-          style={styles.gradient}
+          colors={['transparent', 'transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.overlay}
         />
 
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
+        {/* Back Button */}
+        <TouchableOpacity style={styles.backButton} onPress={goBack}>
+          <View style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+            <Text style={styles.backIcon}>←</Text>
+          </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.shareButton}
-          onPress={shareWallpaper}
-        >
-          <Ionicons name="share-outline" size={24} color="white" />
-        </TouchableOpacity>
-
-        <View style={styles.infoContainer}>
-          <Text style={styles.wallpaperTitle}>{title}</Text>
-          <Text style={styles.downloadCount}>
-            {downloads} downloads
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.actionContainer}>
-        <TouchableOpacity
-          style={[styles.downloadButton, downloading && styles.downloadButtonDisabled]}
-          onPress={downloadWallpaper}
-          disabled={downloading}
-        >
-          <Ionicons 
-            name={downloading ? "download-outline" : "download"} 
-            size={24} 
-            color="white" 
-          />
-          <Text style={styles.downloadButtonText}>
-            {downloading ? 'Downloading...' : 'Download Wallpaper'}
-          </Text>
-        </TouchableOpacity>
-        
-        <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Ionicons name="heart-outline" size={20} color="#667eea" />
-            <Text style={styles.secondaryButtonText}>Favorite</Text>
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
+            <View style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+              <Text style={[styles.actionIcon, { color: liked ? colors.primary : '#FFFFFF' }]}>
+                ♥
+              </Text>
+            </View>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Ionicons name="folder-outline" size={20} color="#667eea" />
-            <Text style={styles.secondaryButtonText}>Save to Collection</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+            <View style={[styles.iconButton, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+              <Text style={styles.actionIcon}>↗</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+
+      {/* Content */}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>{wallpaper.title}</Text>
+          <Text style={[styles.author, { color: colors.placeholder }]}>
+            by {wallpaper.author}
+          </Text>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.stats}>
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>
+              {wallpaper.downloads.toLocaleString()}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.placeholder }]}>Downloads</Text>
+          </View>
+          
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>
+              {wallpaper.likes.toLocaleString()}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.placeholder }]}>Likes</Text>
+          </View>
+          
+          <View style={styles.statItem}>
+            <Text style={[styles.statNumber, { color: colors.text }]}>
+              {wallpaper.resolution}
+            </Text>
+            <Text style={[styles.statLabel, { color: colors.placeholder }]}>Resolution</Text>
+          </View>
+        </View>
+
+        {/* Category */}
+        <View style={styles.categoryContainer}>
+          <View style={[styles.categoryTag, { backgroundColor: colors.primary }]}>
+            <Text style={styles.categoryText}>{wallpaper.category}</Text>
+          </View>
+        </View>
+
+        {/* Download Button */}
+        <LinearGradient
+          colors={[colors.primary, colors.secondary]}
+          style={styles.downloadButton}
+        >
+          <TouchableOpacity
+            style={styles.downloadButtonInner}
+            onPress={handleDownload}
+            disabled={downloading}
+          >
+            <Text style={styles.downloadButtonText}>
+              {downloading ? 'Downloading...' : '⬇ Download Wallpaper'}
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+
+        {/* Additional Info */}
+        <View style={styles.infoSection}>
+          <Text style={[styles.infoTitle, { color: colors.text }]}>About this wallpaper</Text>
+          <Text style={[styles.infoText, { color: colors.placeholder }]}>
+            High-quality {wallpaper.resolution} wallpaper perfect for your device. 
+            Created by talented artists and available for free download.
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
   },
   imageContainer: {
-    flex: 1,
+    height: height * 0.6,
     position: 'relative',
   },
   wallpaperImage: {
     width: '100%',
     height: '100%',
   },
-  gradient: {
+  overlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -148,87 +252,114 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 50,
     left: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    zIndex: 2,
   },
-  shareButton: {
+  actionButtons: {
     position: 'absolute',
     top: 50,
     right: 20,
+    zIndex: 2,
+  },
+  actionButton: {
+    marginBottom: 12,
+  },
+  iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  infoContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
-  },
-  wallpaperTitle: {
-    fontSize: 24,
+  backIcon: {
+    fontSize: 20,
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    color: 'white',
+  },
+  actionIcon: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  content: {
+    flex: 1,
+    marginTop: -20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  author: {
+    fontSize: 16,
+  },
+  stats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+    paddingVertical: 20,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
-  downloadCount: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.8)',
+  statLabel: {
+    fontSize: 14,
   },
-  actionContainer: {
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 30,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    marginTop: -25,
+  categoryContainer: {
+    marginBottom: 32,
+  },
+  categoryTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  categoryText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   downloadButton: {
-    backgroundColor: '#667eea',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
     borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: 32,
+    overflow: 'hidden',
   },
-  downloadButtonDisabled: {
-    opacity: 0.7,
+  downloadButtonInner: {
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   downloadButtonText: {
-    color: 'white',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
-    marginLeft: 8,
   },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  infoSection: {
+    marginBottom: 40,
   },
-  secondaryButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#667eea',
-    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-    marginHorizontal: 6,
+  infoTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
   },
-  secondaryButtonText: {
-    color: '#667eea',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
+  infoText: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  errorText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 100,
   },
 });
