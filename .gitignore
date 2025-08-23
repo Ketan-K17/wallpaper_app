@@ -4,3 +4,6 @@ gemini_api_key_testing/images/
 
 notes.txt
 what_was_i_doing.txt
+
+generated_images/
+__pycache__/
