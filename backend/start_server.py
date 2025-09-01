@@ -19,6 +19,8 @@ def main():
     # Ensure required directories exist
     os.makedirs(settings.generated_images_dir, exist_ok=True)
     os.makedirs("generation_status", exist_ok=True)
+    os.makedirs("temp_images", exist_ok=True)
+    os.makedirs("cropped_images", exist_ok=True)
     
     # Start the server
     uvicorn.run(
