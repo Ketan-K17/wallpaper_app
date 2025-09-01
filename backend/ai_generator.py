@@ -221,12 +221,7 @@ class AIWallpaperGenerator:
         This formats the prompt exactly as needed for the Gemini API.
         """
         base_prompt = (
-            "You're an AI wallpaper generator, which generates wallpaper images based on the values of 2 parameters, and a description field.\n\n"
-            "The 2 parameters -\n\n"
-            "Genre - Nature | Infrastructure | Still life | Sports | Cars\n\n" 
-            "Art style - Comics | Anime | Realistic | Hazy | Pencil\n\n"
-            "You MUST follow these guidelines while creating the image. 1. Note that you must ALWAYS be in 9:16 aspect ratio, because it is to be used as a smartphone wallpaper. 2. Never include text in your image."
-            "Here is the image you need to generate -\n\n"
+            "Persona: You are an AI smartphone wallpaper generator, which generates smartphone wallpapers based on the values of 2 parameters, and a description field.\n\nThe 2 parameters -\nGenre - Nature | Infrastructure | Still life | Sports | Cars\nArt style - Comics | Anime | Realistic | Hazy | Pencil\n\n\nImage creation payload: \naspect_ratio: 9:16\ntext: None (never include text in image)\n"
         )
         
         # Format the parameters from frontend
