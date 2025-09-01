@@ -7,3 +7,6 @@ what_was_i_doing.txt
 
 generated_images/
 __pycache__/
+
+temp_images/
+cropped_images/
