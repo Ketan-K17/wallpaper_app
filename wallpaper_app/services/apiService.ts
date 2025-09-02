@@ -2,9 +2,9 @@
  * API Service for communicating with the AI Wallpaper Generator backend
  */
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://172.16.3.105:8000'  // Development - replace YOUR_COMPUTER_IP with actual IP
-  : 'https://your-production-api.com';  // Production
+import Config from '@/constants/Config';
+
+const API_BASE_URL = Config.api.baseUrl;
 
 export interface GenerationRequest {
   description: string;
