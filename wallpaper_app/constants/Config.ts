@@ -2,12 +2,10 @@
  * Application configuration settings
  */
 
-const Config = {
+export const Config = {
   api: {
     baseUrl: __DEV__ 
       ? 'http://172.16.3.105:8000'  // Development
       : 'https://wallpaperapp-production.up.railway.app',  // Production
   },
-};
-
-export default Config;
+} as const;
