@@ -3,7 +3,7 @@
  */
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://192.168.101.79:8000'  // Development - replace YOUR_COMPUTER_IP with actual IP
+  ? 'http://172.16.3.105:8000'  // Development - replace YOUR_COMPUTER_IP with actual IP
   : 'https://your-production-api.com';  // Production
 
 export interface GenerationRequest {
@@ -49,6 +49,9 @@ class ApiService {
    */
   async generateWallpaper(request: GenerationRequest): Promise<GenerationResponse> {
     try {
+      console.log('🔗 API Base URL:', this.baseUrl);
+      console.log('📝 Request payload:', request);
+      
       const response = await fetch(`${this.baseUrl}/generate`, {
         method: 'POST',
         headers: {
@@ -57,6 +60,9 @@ class ApiService {
         body: JSON.stringify(request),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response ok:', response.ok);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
         throw new Error(errorData.detail || `HTTP ${response.status}`);
@@ -64,7 +70,7 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error starting generation:', error);
+      console.error('❌ Full error details:', error);
       throw error;
     }
   }
