@@ -82,7 +82,13 @@ export default function GenerateScreen() {
           {
             text: 'View Wallpaper',
             onPress: () => {
-              // Navigate to a wallpaper view screen or gallery
+              // Navigate to the specific wallpaper
+              router.push(`/wallpaper/${response.generation_id}`);
+            }
+          },
+          {
+            text: 'Back to Gallery',
+            onPress: () => {
               router.push('/(tabs)');
             }
           },

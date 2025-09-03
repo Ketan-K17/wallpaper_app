@@ -135,7 +135,6 @@ class AIWallpaperGenerator:
                 model=self.model_name,
                 prompt=content_prompt,
                 config=GenerateImagesConfig(
-                    image_size="2K",
                     aspect_ratio="9:16",  # Portrait mode for mobile wallpapers
                 ),
             )

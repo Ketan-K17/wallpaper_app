@@ -4,9 +4,7 @@
 
 import { Config } from '../constants/Config';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://172.16.3.105:8000'  // Development - replace YOUR_COMPUTER_IP with actual IP
-  : Config.api.baseUrl;  // Use Config instead of placeholder
+const API_BASE_URL = Config.api.baseUrl;
 
 export interface GenerationRequest {
   description: string;
@@ -134,9 +132,10 @@ class ApiService {
   /**
    * Get recent completed generations for showcase
    */
-  async getRecentGenerations(limit: number = 10): Promise<RecentGeneration[]> {
+  async getRecentGenerations(limit?: number): Promise<RecentGeneration[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/recent?limit=${limit}`);
+      const url = limit ? `${this.baseUrl}/recent?limit=${limit}` : `${this.baseUrl}/recent`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -186,7 +185,7 @@ class ApiService {
             onProgress(status);
           }
 
-          if (status.status === 'completed') {
+          if (status.status === 'completed' || status.progress === 100) {
             resolve(status);
             return;
           }

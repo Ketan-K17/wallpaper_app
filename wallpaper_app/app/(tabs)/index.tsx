@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,88 +9,102 @@ import {
   StatusBar,
   TextInput,
   ScrollView,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { apiService, RecentGeneration } from '@/services/apiService';
 
 const { width } = Dimensions.get('window');
 const ITEM_WIDTH = (width - 60) / 2;
 
-// Mock wallpaper data
-const wallpapers = [
+// Fallback data for when no generated wallpapers exist yet
+const fallbackWallpapers = [
   {
-    id: '1',
-    title: 'Abstract Orange',
-    author: 'Design Studio',
-    url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400&h=800&fit=crop',
-    category: 'Abstract',
-    premium: false,
-  },
-  {
-    id: '2',
-    title: 'Dark Minimal',
-    author: 'Creative Team',
-    url: 'https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=400&h=800&fit=crop',
-    category: 'Minimal',
-    premium: true,
-  },
-  {
-    id: '3',
-    title: 'Gradient Flow',
-    author: 'Art Collective',
-    url: 'https://images.unsplash.com/photo-1557264305-7e2764da873b?w=400&h=800&fit=crop',
-    category: 'Gradient',
-    premium: false,
-  },
-  {
-    id: '4',
-    title: 'Nature Beauty',
-    author: 'Nature Photos',
-    url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=800&fit=crop',
-    category: 'Nature',
-    premium: false,
-  },
-  {
-    id: '5',
-    title: 'Urban Night',
-    author: 'City Lights',
-    url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=400&h=800&fit=crop',
-    category: 'Urban',
-    premium: true,
-  },
-  {
-    id: '6',
-    title: 'Ocean Waves',
-    author: 'Sea Life',
-    url: 'https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=400&h=800&fit=crop',
-    category: 'Nature',
-    premium: false,
+    generation_id: 'fallback-1',
+    status: 'completed',
+    image_url: 'https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=400&h=800&fit=crop',
+    created_at: new Date().toISOString(),
+    completed_at: new Date().toISOString(),
+    title: 'Get Started',
+    subtitle: 'Generate your first AI wallpaper',
   },
 ];
 
-const categories = ['All', 'Abstract', 'Minimal', 'Gradient', 'Nature', 'Urban'];
+const categories = ['All', 'Recent', 'Generated', 'AI Created'];
+
+type WallpaperItem = RecentGeneration & {
+  title?: string;
+  subtitle?: string;
+};
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [searchText, setSearchText] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [filteredWallpapers, setFilteredWallpapers] = useState(wallpapers);
+  const [wallpapers, setWallpapers] = useState<WallpaperItem[]>([]);
+  const [filteredWallpapers, setFilteredWallpapers] = useState<WallpaperItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWallpapers = async () => {
+    try {
+      setError(null);
+      const recentGenerations = await apiService.getRecentGenerations(selectedCategory === 'All' ? undefined : 20);
+      
+      if (recentGenerations.length === 0) {
+        // Show fallback if no wallpapers generated yet
+        setWallpapers(fallbackWallpapers);
+        setFilteredWallpapers(fallbackWallpapers);
+      } else {
+        // Transform data and add display info
+        const transformedWallpapers = recentGenerations.map((item, index) => ({
+          ...item,
+          title: `AI Wallpaper #${recentGenerations.length - index}`,
+          subtitle: new Date(item.created_at).toLocaleDateString(),
+        }));
+        
+        setWallpapers(transformedWallpapers);
+        setFilteredWallpapers(transformedWallpapers);
+      }
+    } catch (err) {
+      console.error('Error fetching wallpapers:', err);
+      setError('Failed to load wallpapers');
+      // Show fallback data on error
+      setWallpapers(fallbackWallpapers);
+      setFilteredWallpapers(fallbackWallpapers);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWallpapers();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchWallpapers();
+  };
 
   const filterWallpapers = (category: string, search: string) => {
     let filtered = wallpapers;
     
-    if (category !== 'All') {
-      filtered = filtered.filter(item => item.category === category);
-    }
+    // For now, we'll skip category filtering since all are AI generated
+    // Could add categories based on generation params in the future
     
     if (search) {
       filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(search.toLowerCase()) ||
-        item.author.toLowerCase().includes(search.toLowerCase())
+        item.title?.toLowerCase().includes(search.toLowerCase()) ||
+        item.subtitle?.toLowerCase().includes(search.toLowerCase()) ||
+        item.generation_id.toLowerCase().includes(search.toLowerCase())
       );
     }
     
@@ -99,7 +113,8 @@ export default function HomeScreen() {
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
-    filterWallpapers(category, searchText);
+    setLoading(true);
+    fetchWallpapers();
   };
 
   const handleSearch = (text: string) => {
@@ -107,52 +122,59 @@ export default function HomeScreen() {
     filterWallpapers(selectedCategory, text);
   };
 
-  const openWallpaper = (id: string) => {
-    router.push(`/wallpaper/${id}`);
+  const openWallpaper = (generationId: string) => {
+    router.push(`/wallpaper/${generationId}`);
   };
 
   const goToGenerate = () => {
     router.push('/(tabs)/generate');
   };
 
-  const renderWallpaper = ({ item }: { item: typeof wallpapers[0] }) => (
-    <TouchableOpacity
-      style={[styles.wallpaperItem, { backgroundColor: colors.card }]}
-      onPress={() => openWallpaper(item.id)}
-    >
-      <Image
-        source={{ uri: item.url }}
-        style={styles.wallpaperImage}
-        contentFit="cover"
-      />
-      {item.premium && (
-        <View style={[styles.premiumBadge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.premiumText}>PRO</Text>
-        </View>
-      )}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
-        style={styles.wallpaperOverlay}
+  const renderWallpaper = ({ item }: { item: WallpaperItem }) => {
+    const imageUrl = item.generation_id.startsWith('fallback-') 
+      ? item.image_url 
+      : apiService.getImageUrl(item.image_url);
+    
+    return (
+      <TouchableOpacity
+        style={[styles.wallpaperItem, { backgroundColor: colors.card }]}
+        onPress={() => openWallpaper(item.generation_id)}
       >
-        <View style={styles.wallpaperInfo}>
-          <Text style={styles.wallpaperTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <Text style={styles.wallpaperAuthor} numberOfLines={1}>
-            {item.author}
-          </Text>
-        </View>
-      </LinearGradient>
-    </TouchableOpacity>
-  );
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.wallpaperImage}
+          contentFit="cover"
+          placeholder="🖼️"
+        />
+        {item.generation_id.startsWith('fallback-') && (
+          <View style={[styles.fallbackBadge, { backgroundColor: colors.primary }]}>
+            <Text style={styles.fallbackText}>★</Text>
+          </View>
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={styles.wallpaperOverlay}
+        >
+          <View style={styles.wallpaperInfo}>
+            <Text style={styles.wallpaperTitle} numberOfLines={1}>
+              {item.title || 'AI Wallpaper'}
+            </Text>
+            <Text style={styles.wallpaperAuthor} numberOfLines={1}>
+              {item.subtitle || 'Generated by AI'}
+            </Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  };
 
   const renderCategory = ({ item }: { item: string }) => (
     <TouchableOpacity
       style={[
         styles.categoryItem,
         {
-          backgroundColor: selectedCategory === item ? colors.primary : colors.card,
-          borderColor: colors.border,
+          backgroundColor: selectedCategory === item ? colors.primary : 'transparent',
+          borderColor: selectedCategory === item ? 'transparent' : colors.border,
         },
       ]}
       onPress={() => handleCategorySelect(item)}
@@ -170,6 +192,15 @@ export default function HomeScreen() {
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.text }]}>Loading wallpapers...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
@@ -177,7 +208,12 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Discover Wallpapers</Text>
+          <Text style={[styles.title, { color: colors.text }]}>AI Wallpapers</Text>
+          {error && (
+            <Text style={[styles.errorText, { color: colors.accent }]}>
+              {error}
+            </Text>
+          )}
         </View>
         <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.primary }]}>
           <Text style={styles.profileIcon}>👤</Text>
@@ -189,7 +225,7 @@ export default function HomeScreen() {
         <Text style={[styles.searchIcon, { color: colors.placeholder }]}>🔍</Text>
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search wallpapers..."
+          placeholder="Search your wallpapers..."
           placeholderTextColor={colors.placeholder}
           value={searchText}
           onChangeText={handleSearch}
@@ -227,11 +263,29 @@ export default function HomeScreen() {
       <FlatList
         data={filteredWallpapers}
         renderItem={renderWallpaper}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.generation_id}
         numColumns={2}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.wallpapersContainer}
         columnWrapperStyle={styles.wallpaperRow}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+        ListEmptyComponent={() => (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: colors.text }]}>
+              No wallpapers found
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.placeholder }]}>
+              Pull to refresh or generate your first wallpaper
+            </Text>
+          </View>
+        )}
       />
     </View>
   );
@@ -271,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 16,
     paddingHorizontal: 16,
     height: 48,
     borderRadius: 12,
@@ -287,9 +341,14 @@ const styles = StyleSheet.create({
   },
   createPanel: {
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 24,
     borderRadius: 16,
     overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   createPanelGradient: {
     padding: 20,
@@ -323,21 +382,30 @@ const styles = StyleSheet.create({
   },
   categoriesContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 24,
+    height: 36,
   },
   categoryItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 36,
     marginRight: 12,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   categoryText: {
     fontSize: 14,
     fontWeight: '600',
+    opacity: 1, // Ensure full opacity
+    textShadowColor: 'rgba(0, 0, 0, 0.1)', // Add slight shadow for better visibility
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   wallpapersContainer: {
     paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 100,
   },
   wallpaperRow: {
@@ -389,5 +457,46 @@ const styles = StyleSheet.create({
   wallpaperAuthor: {
     color: '#CCCCCC',
     fontSize: 12,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  fallbackBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    zIndex: 1,
+  },
+  fallbackText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

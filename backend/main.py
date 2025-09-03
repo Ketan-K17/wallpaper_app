@@ -11,6 +11,7 @@ from datetime import datetime
 import json
 
 from ai_generator import AIWallpaperGenerator
+from database import db_manager
 
 app = FastAPI(title="AI Wallpaper Generator API", version="1.0.0")
 
@@ -53,8 +54,8 @@ class GenerationStatus(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
 
-# In-memory storage for generation status (in production, use Redis or database)
-generation_jobs = {}
+# Database storage for generation status
+# generation_jobs dictionary removed - now using SQLite database
 
 @app.get("/")
 async def root():
@@ -73,12 +74,13 @@ async def generate_wallpaper(request: GenerationRequest, background_tasks: Backg
         # Generate unique ID for this generation request
         generation_id = str(uuid.uuid4())
         
-        # Store initial status
-        generation_jobs[generation_id] = GenerationStatus(
+        # Store initial status in database
+        await db_manager.create_generation_job(
             generation_id=generation_id,
-            status="pending",
-            progress=0,
-            created_at=datetime.now()
+            description=request.description,
+            genre=request.genre,
+            art_style=request.art_style,
+            user_id=request.user_id
         )
         
         # Start background generation task
@@ -105,26 +107,34 @@ async def get_generation_status(generation_id: str):
     """
     Get the status of a wallpaper generation request
     """
-    if generation_id not in generation_jobs:
+    job = await db_manager.get_job(generation_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Generation ID not found")
     
-    return generation_jobs[generation_id]
+    return GenerationStatus(
+        generation_id=job['generation_id'],
+        status=job['status'],
+        progress=job['progress'],
+        image_url=job['image_url'],
+        error_message=job['error_message'],
+        created_at=datetime.fromisoformat(job['created_at']),
+        completed_at=datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None
+    )
 
 @app.get("/download/{generation_id}")
 async def download_wallpaper(generation_id: str):
     """
     Download the generated wallpaper
     """
-    if generation_id not in generation_jobs:
+    job = await db_manager.get_job(generation_id)
+    if not job:
         raise HTTPException(status_code=404, detail="Generation ID not found")
     
-    job = generation_jobs[generation_id]
-    
-    if job.status != "completed" or not job.image_url:
+    if job['status'] != "completed" or not job['image_url']:
         raise HTTPException(status_code=400, detail="Wallpaper not ready for download")
     
     # Extract filename from URL
-    filename = job.image_url.split("/")[-1]
+    filename = job['image_url'].split("/")[-1]
     file_path = os.path.join("generated_images", filename)
     
     if not os.path.exists(file_path):
@@ -141,15 +151,21 @@ async def get_recent_generations(limit: int = 10):
     """
     Get recent completed generations for showcase
     """
-    completed_jobs = [
-        job for job in generation_jobs.values() 
-        if job.status == "completed" and job.image_url
-    ]
+    jobs = await db_manager.get_recent_jobs(limit=limit, status="completed")
     
-    # Sort by completion time, most recent first
-    completed_jobs.sort(key=lambda x: x.completed_at or x.created_at, reverse=True)
+    # Convert to response format
+    recent_jobs = []
+    for job in jobs:
+        if job['image_url']:  # Only include jobs with images
+            recent_jobs.append({
+                "generation_id": job['generation_id'],
+                "status": job['status'],
+                "image_url": job['image_url'],
+                "created_at": job['created_at'],
+                "completed_at": job['completed_at']
+            })
     
-    return completed_jobs[:limit]
+    return recent_jobs
 
 async def generate_wallpaper_task(
     generation_id: str,
@@ -163,8 +179,7 @@ async def generate_wallpaper_task(
     """
     try:
         # Update status to processing
-        generation_jobs[generation_id].status = "processing"
-        generation_jobs[generation_id].progress = 10
+        await db_manager.update_job_status(generation_id, "processing", progress=10)
         
         # Prepare generation parameters
         generation_params = {
@@ -176,13 +191,27 @@ async def generate_wallpaper_task(
         }
         
         # Update progress
-        generation_jobs[generation_id].progress = 30
+        await db_manager.update_job_status(generation_id, "processing", progress=30)
+        
+        # Create a sync wrapper for the async progress callback
+        def progress_callback_sync(progress):
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If we're in an async context, schedule the coroutine
+                    asyncio.create_task(update_progress(generation_id, progress))
+                else:
+                    # If not, run it directly
+                    loop.run_until_complete(update_progress(generation_id, progress))
+            except Exception as e:
+                print(f"Error updating progress: {e}")
         
         # Call your AI generation function
         # This is where your Python AI code will be executed
         result = await ai_generator.generate_wallpaper(
             generation_params,
-            progress_callback=lambda p: update_progress(generation_id, p)
+            progress_callback=progress_callback_sync
         )
         
         if result["success"]:
@@ -192,11 +221,17 @@ async def generate_wallpaper_task(
             
             # The AI generator should save the image and return the path
             if "image_path" in result:
-                # Update job status
-                generation_jobs[generation_id].status = "completed"
-                generation_jobs[generation_id].progress = 100
-                generation_jobs[generation_id].image_url = f"/images/{image_filename}"
-                generation_jobs[generation_id].completed_at = datetime.now()
+                # Update job status to completed
+                update_success = await db_manager.update_job_status(
+                    generation_id, 
+                    "completed", 
+                    progress=100, 
+                    image_url=f"/images/{image_filename}"
+                )
+                if update_success:
+                    print(f"✅ Generation completed successfully: {generation_id}")
+                else:
+                    print(f"⚠️ Generation completed but database update failed: {generation_id}")
             else:
                 raise Exception("AI generator did not return image path")
         else:
@@ -204,17 +239,20 @@ async def generate_wallpaper_task(
             
     except Exception as e:
         # Update status to failed
-        generation_jobs[generation_id].status = "failed"
-        generation_jobs[generation_id].error_message = str(e)
-        generation_jobs[generation_id].completed_at = datetime.now()
+        await db_manager.update_job_status(
+            generation_id, 
+            "failed", 
+            error_message=str(e)
+        )
         print(f"Generation failed for {generation_id}: {str(e)}")
 
-def update_progress(generation_id: str, progress: int):
+async def update_progress(generation_id: str, progress: int):
     """
     Callback function to update generation progress
     """
-    if generation_id in generation_jobs:
-        generation_jobs[generation_id].progress = min(progress, 99)  # Keep 100 for completion
+    # If progress is 100%, mark as completed
+    status = "completed" if progress >= 100 else "processing"
+    await db_manager.update_job_status(generation_id, status, progress=progress)
 
 if __name__ == "__main__":
     import uvicorn
