@@ -15,25 +15,46 @@ class DatabaseManager:
 
     async def init_database(self):
         """Initialize the database pool and create required tables"""
-        if not self.pool:
-            self.pool = await asyncpg.create_pool(self.database_url)
-            
-        async with self.pool.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS generation_jobs (
-                    generation_id TEXT PRIMARY KEY,
-                    status TEXT NOT NULL,
-                    progress INTEGER DEFAULT 0,
-                    image_url TEXT,
-                    error_message TEXT,
-                    description TEXT,
-                    genre TEXT,
-                    art_style TEXT,
-                    user_id TEXT,
-                    created_at TIMESTAMP NOT NULL,
-                    completed_at TIMESTAMP
+        try:
+            if not self.pool:
+                print(f"🔗 Connecting to database: {self.database_url[:50]}...")
+                self.pool = await asyncpg.create_pool(
+                    self.database_url,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=30
                 )
-            """)
+                print("✅ Database connection pool created successfully")
+                
+            async with self.pool.acquire() as conn:
+                print("🔗 Testing database connection...")
+                await conn.execute("SELECT 1")
+                print("✅ Database connection test successful")
+                
+                print("📋 Creating/verifying tables...")
+                await conn.execute("""
+                    CREATE TABLE IF NOT EXISTS generation_jobs (
+                        generation_id TEXT PRIMARY KEY,
+                        status TEXT NOT NULL,
+                        progress INTEGER DEFAULT 0,
+                        image_url TEXT,
+                        error_message TEXT,
+                        description TEXT,
+                        genre TEXT,
+                        art_style TEXT,
+                        user_id TEXT,
+                        created_at TIMESTAMP NOT NULL,
+                        completed_at TIMESTAMP
+                    )
+                """)
+                print("✅ Database tables verified")
+                
+        except Exception as e:
+            print(f"❌ Database initialization failed: {e}")
+            print(f"❌ DATABASE_URL: {self.database_url}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            raise e
     
     async def create_generation_job(self, generation_id: str, description: str, 
                                   genre: Optional[str] = None, art_style: Optional[str] = None,
@@ -41,14 +62,29 @@ class DatabaseManager:
         """Create a new generation job"""
         try:
             async with self.pool.acquire() as conn:
-                await conn.execute("""
-                    INSERT INTO generation_jobs 
-                    (generation_id, status, description, genre, art_style, user_id, created_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                """, generation_id, 'pending', description, genre, art_style, user_id, datetime.now())
-                return True
+                async with conn.transaction():
+                    await conn.execute("""
+                        INSERT INTO generation_jobs 
+                        (generation_id, status, description, genre, art_style, user_id, created_at)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """, generation_id, 'pending', description, genre, art_style, user_id, datetime.now())
+                    
+                    # Verify the insert
+                    verify_row = await conn.fetchrow(
+                        "SELECT generation_id, status FROM generation_jobs WHERE generation_id = $1", 
+                        generation_id
+                    )
+                    if verify_row:
+                        print(f"✅ Created job: {generation_id} with status: {verify_row['status']}")
+                    else:
+                        print(f"❌ Failed to verify job creation for {generation_id}")
+                        return False
+                    
+                    return True
         except Exception as e:
-            print(f"Error creating generation job: {e}")
+            print(f"❌ Error creating generation job {generation_id}: {e}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
             return False
     
     async def update_job_status(self, generation_id: str, status: str, 
@@ -87,12 +123,29 @@ class DatabaseManager:
             query = f"UPDATE generation_jobs SET {', '.join(update_fields)} WHERE generation_id = ${param_count}"
             
             async with self.pool.acquire() as conn:
-                result = await conn.execute(query, *params)
-                affected = result.split()[-1]  # Get number of affected rows
-                print(f"🔄 Database update: {affected} rows affected for {generation_id}")
-                return int(affected) > 0
+                async with conn.transaction():
+                    result = await conn.execute(query, *params)
+                    # Parse the result properly (asyncpg returns "UPDATE n" format)
+                    affected = int(result.split()[-1]) if result.split() else 0
+                    print(f"🔄 Database update: {affected} rows affected for {generation_id}")
+                    print(f"🔍 Update query: {query}")
+                    print(f"🔍 Update params: {params}")
+                    
+                    # Verify the update by reading back the record
+                    verify_row = await conn.fetchrow(
+                        "SELECT status, progress, image_url FROM generation_jobs WHERE generation_id = $1", 
+                        generation_id
+                    )
+                    if verify_row:
+                        print(f"✅ Verified update - Status: {verify_row['status']}, Progress: {verify_row['progress']}")
+                    else:
+                        print(f"❌ No record found for {generation_id}")
+                    
+                    return affected > 0
         except Exception as e:
-            print(f"Error updating job status: {e}")
+            print(f"❌ Error updating job status for {generation_id}: {e}")
+            import traceback
+            print(f"❌ Full traceback: {traceback.format_exc()}")
             return False
     
     async def get_job(self, generation_id: str) -> Optional[Dict[str, Any]]:
