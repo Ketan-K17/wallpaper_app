@@ -15,6 +15,16 @@ from database import db_manager
 
 app = FastAPI(title="AI Wallpaper Generator API", version="1.0.0")
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection pool on startup"""
+    try:
+        await db_manager.init_database()
+        print("✅ Database initialized successfully")
+    except Exception as e:
+        print(f"❌ Failed to initialize database: {e}")
+        raise e
+
 # Configure CORS for React Native app
 app.add_middleware(
     CORSMiddleware,
