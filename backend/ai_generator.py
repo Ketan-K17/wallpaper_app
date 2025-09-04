@@ -36,17 +36,11 @@ class AIWallpaperGenerator:
             project_id = os.getenv("VERTEX_PROJECT_ID", "ai-wallpaper-lava")
             location = os.getenv("VERTEX_LOCATION", "us-central1")
             
-            # Get credentials from environment variable
-            credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
-            if credentials_json and credentials_json.startswith('{'): # Check if it's a JSON string
-                # Parse JSON string directly
-                credentials_info = json.loads(credentials_json)
-                credentials = service_account.Credentials.from_service_account_info(credentials_info)
-            else:
-                # Fallback to file-based credentials if not JSON string
-                credentials = service_account.Credentials.from_service_account_file(credentials_json)
+            # Setup credentials - handle both Railway and local environments
+            credentials = self._setup_credentials()
                 
             self.client = genai.Client(
+                vertexai=True,  # Add this for Vertex AI
                 credentials=credentials,
                 project=project_id,
                 location=location
@@ -59,6 +53,41 @@ class AIWallpaperGenerator:
             print(f"❌ Failed to initialize Vertex AI Imagen: {str(e)}")
             print("💡 Make sure your Google Cloud credentials are configured")
             self.model_loaded = False
+    
+    def _setup_credentials(self):
+        """
+        Setup Google Cloud credentials for both Railway and local environments.
+        """
+        # Method 1: Check for Railway JSON environment variable
+        credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+        if credentials_json:
+            print("📝 Using GOOGLE_APPLICATION_CREDENTIALS_JSON from environment")
+            try:
+                credentials_info = json.loads(credentials_json)
+                return service_account.Credentials.from_service_account_info(credentials_info)
+            except json.JSONDecodeError as e:
+                print(f"❌ Invalid JSON in GOOGLE_APPLICATION_CREDENTIALS_JSON: {e}")
+                raise
+        
+        # Method 2: Check for file path (local development)
+        credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if credentials_file and os.path.exists(credentials_file):
+            print(f"📁 Using credentials file: {credentials_file}")
+            return service_account.Credentials.from_service_account_file(credentials_file)
+        
+        # Method 3: Try to create file from JSON for Railway compatibility
+        if credentials_json:
+            print("🔧 Creating temporary credentials file for Railway")
+            credentials_file = "/tmp/google-credentials.json"
+            with open(credentials_file, 'w') as f:
+                f.write(credentials_json)
+            # Set the environment variable for other libraries that might need it
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
+            return service_account.Credentials.from_service_account_file(credentials_file)
+        
+        # If nothing works, let Google libraries try default authentication
+        print("⚠️ No explicit credentials found, trying default authentication")
+        return None
         
     async def generate_wallpaper(
         self, 
