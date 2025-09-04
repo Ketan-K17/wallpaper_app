@@ -37,7 +37,7 @@ class AIWallpaperGenerator:
             location = os.getenv("VERTEX_LOCATION", "us-central1")
             
             # Get credentials from environment variable
-            credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
             if credentials_json and credentials_json.startswith('{'): # Check if it's a JSON string
                 # Parse JSON string directly
                 credentials_info = json.loads(credentials_json)
