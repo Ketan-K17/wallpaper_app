@@ -9,18 +9,14 @@ load_dotenv()
 class DatabaseManager:
     def __init__(self):
         self.pool = None
-        self.connection_params = {
-            'user': os.getenv('POSTGRES_USER', 'postgres'),
-            'password': os.getenv('POSTGRES_PASSWORD'),
-            'database': os.getenv('POSTGRES_DB', 'wallpaper_generator'),
-            'host': os.getenv('POSTGRES_HOST', 'localhost'),
-            'port': int(os.getenv('POSTGRES_PORT', '5432'))
-        }
+        self.database_url = os.getenv('DATABASE_URL')
+        if not self.database_url:
+            raise ValueError("DATABASE_URL environment variable not set")
 
     async def init_database(self):
         """Initialize the database pool and create required tables"""
         if not self.pool:
-            self.pool = await asyncpg.create_pool(**self.connection_params)
+            self.pool = await asyncpg.create_pool(self.database_url)
             
         async with self.pool.acquire() as conn:
             await conn.execute("""
