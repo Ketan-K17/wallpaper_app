@@ -185,7 +185,7 @@ class ApiService {
             onProgress(status);
           }
 
-          if (status.status === 'completed' || status.progress === 100) {
+          if (status.status === 'completed' && status.image_url) {
             resolve(status);
             return;
           }
