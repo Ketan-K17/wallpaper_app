@@ -127,8 +127,8 @@ async def get_generation_status(generation_id: str):
         progress=job['progress'],
         image_url=job['image_url'],
         error_message=job['error_message'],
-        created_at=datetime.fromisoformat(job['created_at']),
-        completed_at=datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None
+        created_at=job['created_at'] if isinstance(job['created_at'], datetime) else datetime.fromisoformat(job['created_at']),
+        completed_at=job['completed_at'] if isinstance(job['completed_at'], datetime) else datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None
     )
 
 @app.get("/download/{generation_id}")

@@ -13,3 +13,4 @@ cropped_images/
 
 *.bak
 *.db
+service-account.json
