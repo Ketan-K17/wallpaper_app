@@ -260,9 +260,9 @@ async def update_progress(generation_id: str, progress: int):
     """
     Callback function to update generation progress
     """
-    # If progress is 100%, mark as completed
-    status = "completed" if progress >= 100 else "processing"
-    await db_manager.update_job_status(generation_id, status, progress=progress)
+    # Only update progress, don't change status
+    # Status will be set to completed only when image URL is set
+    await db_manager.update_job_status(generation_id, "processing", progress=progress)
 
 if __name__ == "__main__":
     import uvicorn
