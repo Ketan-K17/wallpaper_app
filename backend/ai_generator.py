@@ -64,7 +64,11 @@ class AIWallpaperGenerator:
             print("📝 Using GOOGLE_APPLICATION_CREDENTIALS_JSON from environment")
             try:
                 credentials_info = json.loads(credentials_json)
-                return service_account.Credentials.from_service_account_info(credentials_info)
+                scopes = [
+                    "https://www.googleapis.com/auth/generative-language",
+                    "https://www.googleapis.com/auth/cloud-platform",
+                ]
+                return service_account.Credentials.from_service_account_info(credentials_info, scopes=scopes)
             except json.JSONDecodeError as e:
                 print(f"❌ Invalid JSON in GOOGLE_APPLICATION_CREDENTIALS_JSON: {e}")
                 raise
@@ -73,7 +77,11 @@ class AIWallpaperGenerator:
         credentials_file = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
         if credentials_file and os.path.exists(credentials_file):
             print(f"📁 Using credentials file: {credentials_file}")
-            return service_account.Credentials.from_service_account_file(credentials_file)
+            scopes = [
+                "https://www.googleapis.com/auth/generative-language",
+                "https://www.googleapis.com/auth/cloud-platform",
+            ]
+            return service_account.Credentials.from_service_account_file(credentials_file, scopes=scopes)
         
         # Method 3: Try to create file from JSON for Railway compatibility
         if credentials_json:
@@ -83,7 +91,11 @@ class AIWallpaperGenerator:
                 f.write(credentials_json)
             # Set the environment variable for other libraries that might need it
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
-            return service_account.Credentials.from_service_account_file(credentials_file)
+            scopes = [
+                "https://www.googleapis.com/auth/generative-language",
+                "https://www.googleapis.com/auth/cloud-platform",
+            ]
+            return service_account.Credentials.from_service_account_file(credentials_file, scopes=scopes)
         
         # If nothing works, let Google libraries try default authentication
         print("⚠️ No explicit credentials found, trying default authentication")
