@@ -97,7 +97,9 @@ class DatabaseManager:
             params = [status]
             param_count = 1
             
-            if progress is not None:
+            # Critical fix: Only update progress if it's not already at 100%
+            # AND we're not changing to completed/failed status
+            if progress is not None and not (status in ['completed', 'failed'] and progress == 100):
                 param_count += 1
                 update_fields.append(f"progress = ${param_count}")
                 params.append(progress)
@@ -133,11 +135,14 @@ class DatabaseManager:
                     
                     # Verify the update by reading back the record
                     verify_row = await conn.fetchrow(
-                        "SELECT status, progress, image_url FROM generation_jobs WHERE generation_id = $1", 
+                        "SELECT status, progress, image_url, completed_at FROM generation_jobs WHERE generation_id = $1", 
                         generation_id
                     )
                     if verify_row:
-                        print(f"✅ Verified update - Status: {verify_row['status']}, Progress: {verify_row['progress']}")
+                        status_msg = f"Status: {verify_row['status']}, Progress: {verify_row['progress']}"
+                        if verify_row['completed_at']:
+                            status_msg += f", Completed at: {verify_row['completed_at']}"
+                        print(f"✅ Verified update - {status_msg}")
                     else:
                         print(f"❌ No record found for {generation_id}")
                     

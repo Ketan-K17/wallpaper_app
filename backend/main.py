@@ -177,6 +177,23 @@ async def get_recent_generations(limit: int = 10):
     
     return recent_jobs
 
+async def update_progress(generation_id: str, progress: int):
+    """
+    Callback function to update generation progress
+    ONLY updates if status is still processing
+    """
+    job = await db_manager.get_job(generation_id)
+    if not job:
+        return
+    
+    # ONLY update if still processing (prevent overriding completed/failed)
+    if job['status'] == 'processing':
+        await db_manager.update_job_status(
+            generation_id, 
+            "processing", 
+            progress=progress
+        )
+
 async def generate_wallpaper_task(
     generation_id: str,
     description: str,
@@ -209,41 +226,42 @@ async def generate_wallpaper_task(
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # If we're in an async context, schedule the coroutine
                     asyncio.create_task(update_progress(generation_id, progress))
                 else:
-                    # If not, run it directly
                     loop.run_until_complete(update_progress(generation_id, progress))
             except Exception as e:
                 print(f"Error updating progress: {e}")
         
         # Call your AI generation function
-        # This is where your Python AI code will be executed
         result = await ai_generator.generate_wallpaper(
             generation_params,
             progress_callback=progress_callback_sync
         )
         
         if result["success"]:
-            # Save the generated image
-            image_filename = f"{generation_id}.png"
-            image_path = os.path.join("generated_images", image_filename)
+            # Verify image actually exists
+            image_path = result.get("image_path", "")
+            if not os.path.exists(image_path):
+                raise Exception("Generated image file not found")
             
-            # The AI generator should save the image and return the path
-            if "image_path" in result:
-                # Update job status to completed
-                update_success = await db_manager.update_job_status(
-                    generation_id, 
-                    "completed", 
-                    progress=100, 
-                    image_url=f"/images/{image_filename}"
+            # Update to COMPLETED status WITHOUT setting progress again
+            # ONLY change status, don't touch progress
+            update_success = await db_manager.update_job_status(
+                generation_id, 
+                "completed",  # <-- Only change status
+                image_url=f"/images/{generation_id}.png"
+            )
+            
+            if not update_success:
+                # Critical: If status update fails, mark as failed
+                await db_manager.update_job_status(
+                    generation_id,
+                    "failed",
+                    error_message="Database update failed for completed status"
                 )
-                if update_success:
-                    print(f"✅ Generation completed successfully: {generation_id}")
-                else:
-                    print(f"⚠️ Generation completed but database update failed: {generation_id}")
-            else:
-                raise Exception("AI generator did not return image path")
+                raise Exception("Failed to update database with completed status")
+                
+            print(f"✅ Generation completed successfully: {generation_id}")
         else:
             raise Exception(result.get("error", "Unknown error during generation"))
             
@@ -254,15 +272,9 @@ async def generate_wallpaper_task(
             "failed", 
             error_message=str(e)
         )
-        print(f"Generation failed for {generation_id}: {str(e)}")
+        print(f"❌ Generation failed for {generation_id}: {str(e)}")
 
-async def update_progress(generation_id: str, progress: int):
-    """
-    Callback function to update generation progress
-    """
-    # Only update progress, don't change status
-    # Status will be set to completed only when image URL is set
-    await db_manager.update_job_status(generation_id, "processing", progress=progress)
+
 
 if __name__ == "__main__":
     import uvicorn

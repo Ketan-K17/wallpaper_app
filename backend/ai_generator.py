@@ -303,7 +303,7 @@ class AIWallpaperGenerator:
     
     async def _save_image(self, image: Image.Image, generation_id: str) -> str:
         """
-        Save the generated image to disk.
+        Save the generated image to disk and return relative path
         """
         # Ensure the directory exists
         os.makedirs("generated_images", exist_ok=True)
@@ -313,17 +313,15 @@ class AIWallpaperGenerator:
         file_path = os.path.join("generated_images", filename)
         
         # Save image
-        # Convert to PIL Image if needed
         if hasattr(image, 'image_bytes'):
-            # Handle Vertex AI image format
             with open(file_path, 'wb') as f:
                 f.write(image.image_bytes)
         else:
-            # Handle PIL Image format
             image.save(file_path, "PNG")
         
         print(f"💾 Image saved: {file_path}")
-        return file_path
+        # RETURN RELATIVE PATH FOR DATABASE
+        return f"generated_images/{filename}"  # <-- CRITICAL CHANGE
     
     def cleanup_old_images(self, max_age_hours: int = 24):
         """
