@@ -10,3 +10,6 @@ __pycache__/
 
 temp_images/
 cropped_images/
+
+*.bak
+*.db
