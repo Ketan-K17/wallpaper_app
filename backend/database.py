@@ -38,6 +38,7 @@ class DatabaseManager:
                         status TEXT NOT NULL,
                         progress INTEGER DEFAULT 0,
                         image_url TEXT,
+                        image_data BYTEA,
                         error_message TEXT,
                         description TEXT,
                         genre TEXT,
@@ -90,7 +91,7 @@ class DatabaseManager:
     
     async def update_job_status(self, generation_id: str, status: str, 
                                progress: Optional[int] = None, image_url: Optional[str] = None,
-                               error_message: Optional[str] = None) -> bool:
+                               error_message: Optional[str] = None, image_data: Optional[bytes] = None) -> bool:
         """Update job status and related fields"""
         try:
             # Build dynamic update query
@@ -114,6 +115,11 @@ class DatabaseManager:
                 param_count += 1
                 update_fields.append(f"error_message = ${param_count}")
                 params.append(error_message)
+            
+            if image_data is not None:
+                param_count += 1
+                update_fields.append(f"image_data = ${param_count}")
+                params.append(image_data)
             
             if status in ['completed', 'failed']:
                 param_count += 1
@@ -188,6 +194,18 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error getting recent jobs: {e}")
             return []
+    
+    async def get_image_data(self, generation_id: str) -> Optional[bytes]:
+        """Get image data for a specific generation"""
+        try:
+            async with self.pool.acquire() as conn:
+                row = await conn.fetchrow("""
+                    SELECT image_data FROM generation_jobs WHERE generation_id = $1
+                """, generation_id)
+                return row['image_data'] if row and row['image_data'] else None
+        except Exception as e:
+            print(f"Error getting image data: {e}")
+            return None
     
     async def cleanup_old_jobs(self, days: int = 30) -> bool:
         """Clean up jobs older than specified days"""

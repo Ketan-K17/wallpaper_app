@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import Optional
 import os
@@ -129,6 +129,17 @@ async def get_generation_status(generation_id: str):
         completed_at=job['completed_at'] if isinstance(job['completed_at'], datetime) else datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None
     )
 
+@app.get("/image/{generation_id}")
+async def get_image(generation_id: str):
+    """
+    Serve image from database
+    """
+    image_data = await db_manager.get_image_data(generation_id)
+    if not image_data:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return Response(content=image_data, media_type="image/png")
+
 @app.get("/download/{generation_id}")
 async def download_wallpaper(generation_id: str):
     """
@@ -141,17 +152,15 @@ async def download_wallpaper(generation_id: str):
     if job['status'] != "completed" or not job['image_url']:
         raise HTTPException(status_code=400, detail="Wallpaper not ready for download")
     
-    # Extract filename from URL
-    filename = job['image_url'].split("/")[-1]
-    file_path = os.path.join("generated_images", filename)
-    
-    if not os.path.exists(file_path):
+    # Get image data from database
+    image_data = await db_manager.get_image_data(generation_id)
+    if not image_data:
         raise HTTPException(status_code=404, detail="Generated image file not found")
     
-    return FileResponse(
-        file_path,
+    return Response(
+        content=image_data,
         media_type="image/png",
-        filename=f"wallpaper_{generation_id}.png"
+        headers={"Content-Disposition": f"attachment; filename=wallpaper_{generation_id}.png"}
     )
 
 @app.get("/recent")
@@ -237,22 +246,7 @@ async def generate_wallpaper_task(
         )
         
         if result["success"]:
-            # Update to COMPLETED status WITHOUT setting progress again
-            # ONLY change status, don't touch progress
-            update_success = await db_manager.update_job_status(
-                generation_id, 
-                "completed"  # <-- Only change status
-            )
-            
-            if not update_success:
-                # Critical: If status update fails, mark as failed
-                await db_manager.update_job_status(
-                    generation_id,
-                    "failed",
-                    error_message="Database update failed for completed status"
-                )
-                raise Exception("Failed to update database with completed status")
-                
+            # AI generator already updated status to "completed" with image data
             print(f"✅ Generation completed successfully: {generation_id}")
         else:
             raise Exception(result.get("error", "Unknown error during generation"))
