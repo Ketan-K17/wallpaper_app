@@ -48,6 +48,32 @@ class DatabaseManager:
                         completed_at TIMESTAMP
                     )
                 """)
+                
+                print("📋 Running database migrations...")
+                # Migration: Add image_data column if it doesn't exist
+                try:
+                    # Check if image_data column exists
+                    column_exists = await conn.fetchval("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.columns 
+                            WHERE table_name = 'generation_jobs' 
+                            AND column_name = 'image_data'
+                        )
+                    """)
+                    
+                    if not column_exists:
+                        print("🔄 Adding image_data column...")
+                        await conn.execute("""
+                            ALTER TABLE generation_jobs ADD COLUMN image_data BYTEA
+                        """)
+                        print("✅ image_data column added successfully")
+                    else:
+                        print("✅ image_data column already exists")
+                        
+                except Exception as migration_error:
+                    print(f"⚠️ Migration warning: {migration_error}")
+                    # Don't fail startup if migration fails
+                
                 print("✅ Database tables verified")
                 
         except Exception as e:

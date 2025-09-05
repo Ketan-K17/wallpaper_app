@@ -134,9 +134,17 @@ async def get_image(generation_id: str):
     """
     Serve image from database
     """
+    # First check if the generation exists
+    job = await db_manager.get_job(generation_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Generation ID not found")
+    
+    if job['status'] != "completed":
+        raise HTTPException(status_code=400, detail="Image not ready - generation not completed")
+    
     image_data = await db_manager.get_image_data(generation_id)
     if not image_data:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(status_code=404, detail="Image data not found - this may be an older generation before image storage was implemented")
     
     return Response(content=image_data, media_type="image/png")
 

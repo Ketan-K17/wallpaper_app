@@ -294,12 +294,26 @@ class AIWallpaperGenerator:
             
             # Save image data to database and set image_url to serve from database
             image_url = f"/image/{generation_id}"
-            await db_manager.update_job_status(
+            
+            # Try to update with image data first
+            update_success = await db_manager.update_job_status(
                 generation_id,
                 "completed",
                 image_url=image_url,
                 image_data=image_data
             )
+            
+            # If image data update failed, at least set the completed status and image_url
+            if not update_success:
+                print("⚠️ Failed to save image data, saving without image data...")
+                update_success = await db_manager.update_job_status(
+                    generation_id,
+                    "completed", 
+                    image_url=image_url
+                )
+                
+                if not update_success:
+                    raise Exception("Failed to update database with completed status")
             
             # Update progress - completed
             if progress_callback:
