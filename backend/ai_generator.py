@@ -206,87 +206,9 @@ class AIWallpaperGenerator:
             # Get the first image from the response
             generated_image = response.generated_images[0]
             
-            # Extract image data using the correct approach
-            image_data = None
-
-            try:
-                # Method 1: Check if there's direct access to image bytes
-                if hasattr(generated_image, 'image_bytes'):
-                    image_data = generated_image.image_bytes
-                
-                # Method 2: Access through the image attribute
-                elif hasattr(generated_image, 'image'):
-                    image_obj = generated_image.image
-                    
-                    # Try to get bytes directly from image object
-                    if hasattr(image_obj, 'image_bytes'):
-                        image_data = image_obj.image_bytes
-                    
-                    # Try PIL conversion if available
-                    elif hasattr(image_obj, 'pil_image'):
-                        img_buffer = BytesIO()
-                        image_obj.pil_image.save(img_buffer, format='PNG')
-                        image_data = img_buffer.getvalue()
-                    
-                    # If it has a save method, use BytesIO to capture the data
-                    elif hasattr(image_obj, 'save'):
-                        img_buffer = BytesIO()
-                        image_obj.save(img_buffer, format='PNG')
-                        image_data = img_buffer.getvalue()
-                    
-                    # Try converting the image object directly to bytes
-                    else:
-                        try:
-                            image_data = bytes(image_obj)
-                        except (TypeError, ValueError):
-                            pass
-                
-                # Method 3: Try direct conversion of the generated_image object
-                elif hasattr(generated_image, 'data'):
-                    image_data = generated_image.data
-                
-                # Method 4: Last resort - try converting generated_image to bytes
-                else:
-                    try:
-                        image_data = bytes(generated_image)
-                    except (TypeError, ValueError):
-                        pass
-
-                # If all extraction methods failed, raise an exception
-                if not image_data:
-                    raise Exception("Could not extract image data from Vertex AI response")
-                    
-                print(f"✅ Image data extracted successfully ({len(image_data)} bytes)")
-
-            except Exception as extraction_error:
-                # Fallback: Try to save directly and then read the file
-                print(f"⚠️ Direct extraction failed: {extraction_error}")
-                print("🔄 Attempting fallback method...")
-                
-                try:
-                    import tempfile
-                    import os
-                    
-                    # Create a temporary file
-                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-                        temp_path = temp_file.name
-                    
-                    # Try to save using the built-in save method
-                    generated_image.image.save(temp_path)
-                    
-                    # Read the file back as bytes
-                    with open(temp_path, 'rb') as f:
-                        image_data = f.read()
-                    
-                    # Clean up the temporary file
-                    os.unlink(temp_path)
-                    
-                    print(f"✅ Fallback successful - Image data extracted ({len(image_data)} bytes)")
-                    
-                except Exception as fallback_error:
-                    raise Exception(f"Both direct extraction and fallback failed. "
-                                   f"Extraction error: {extraction_error}. "
-                                   f"Fallback error: {fallback_error}")
+            # Extract image data directly using the known working approach
+            image_data = generated_image.image.image_bytes
+            print(f"✅ Image data extracted successfully ({len(image_data)} bytes)")
             
             # Update progress - saving image to database
             if progress_callback:
