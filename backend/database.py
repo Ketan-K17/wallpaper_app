@@ -81,6 +81,7 @@ class DatabaseManager:
                         return False
                     
                     return True
+                    
         except Exception as e:
             print(f"❌ Error creating generation job {generation_id}: {e}")
             import traceback

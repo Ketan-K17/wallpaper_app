@@ -64,8 +64,6 @@ class GenerationStatus(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
 
-# Database storage for generation status
-# generation_jobs dictionary removed - now using SQLite database
 
 @app.get("/")
 async def root():
@@ -239,17 +237,11 @@ async def generate_wallpaper_task(
         )
         
         if result["success"]:
-            # Verify image actually exists
-            image_path = result.get("image_path", "")
-            if not os.path.exists(image_path):
-                raise Exception("Generated image file not found")
-            
             # Update to COMPLETED status WITHOUT setting progress again
             # ONLY change status, don't touch progress
             update_success = await db_manager.update_job_status(
                 generation_id, 
-                "completed",  # <-- Only change status
-                image_url=f"/images/{generation_id}.png"
+                "completed"  # <-- Only change status
             )
             
             if not update_success:
