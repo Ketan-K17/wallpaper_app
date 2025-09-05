@@ -101,6 +101,18 @@ class AIWallpaperGenerator:
         # If nothing works, let Google libraries try default authentication
         print("⚠️ No explicit credentials found, trying default authentication")
         return None
+    
+    def _reset_generation_state(self):
+        """
+        Reset any internal state that might affect generation.
+        This helps prevent issues between consecutive requests.
+        """
+        # Force garbage collection to clean up any lingering objects
+        import gc
+        gc.collect()
+        
+        # Log that we're resetting state
+        print("🔄 Resetting AI generator state for new generation")
         
     async def generate_wallpaper(
         self, 
@@ -123,6 +135,8 @@ class AIWallpaperGenerator:
             Dict with 'success' (bool), 'image_path' (str), and optionally 'error' (str)
         """
         try:
+            # Ensure clean state for each generation
+            self._reset_generation_state()
             generation_id = params["generation_id"]
             description = params["description"]
             genre = params.get("genre")
@@ -214,13 +228,18 @@ class AIWallpaperGenerator:
             if progress_callback:
                 progress_callback(90)
             
+            # Update progress to 100% before marking as completed
+            if progress_callback:
+                progress_callback(100)
+            
             # Save image data to database and set image_url to serve from database
             image_url = f"/image/{generation_id}"
             
-            # Try to update with image data first
+            # Update status to completed with 100% progress
             update_success = await db_manager.update_job_status(
                 generation_id,
                 "completed",
+                progress=100,
                 image_url=image_url,
                 image_data=image_data
             )
@@ -231,15 +250,12 @@ class AIWallpaperGenerator:
                 update_success = await db_manager.update_job_status(
                     generation_id,
                     "completed", 
+                    progress=100,
                     image_url=image_url
                 )
                 
                 if not update_success:
                     raise Exception("Failed to update database with completed status")
-            
-            # Update progress - completed
-            if progress_callback:
-                progress_callback(100)
             
             return {
                 "success": True,

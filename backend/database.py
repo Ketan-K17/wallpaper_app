@@ -125,9 +125,9 @@ class DatabaseManager:
             params = [status]
             param_count = 1
             
-            # Critical fix: Only update progress if it's not already at 100%
-            # AND we're not changing to completed/failed status
-            if progress is not None and not (status in ['completed', 'failed'] and progress == 100):
+            # Update progress if provided
+            # For completed/failed status, always allow progress update to reflect final state
+            if progress is not None:
                 param_count += 1
                 update_fields.append(f"progress = ${param_count}")
                 params.append(progress)
