@@ -116,8 +116,7 @@ class AIWallpaperGenerator:
         
     async def generate_wallpaper(
         self, 
-        params: Dict[str, Any], 
-        progress_callback: Optional[Callable[[int], None]] = None
+        params: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Main method to generate wallpaper based on parameters.
@@ -129,7 +128,6 @@ class AIWallpaperGenerator:
                 - art_style (str, optional): Comics, Anime, Realistic, Hazy, Pencil
                 - user_id (str, optional): User identifier
                 - generation_id (str): Unique generation ID
-            progress_callback: Function to call with progress updates (0-100)
         
         Returns:
             Dict with 'success' (bool), 'image_path' (str), and optionally 'error' (str)
@@ -145,17 +143,14 @@ class AIWallpaperGenerator:
             print(f"🎨 Starting generation for: {description}")
             print(f"📝 Parameters: Genre={genre}, Art Style={art_style}")
             
-            # Update progress
-            if progress_callback:
-                progress_callback(40)
+            # Update progress - starting generation
+            await db_manager.update_job_status(generation_id, "processing", progress=10)
             
-            # TODO: Replace this placeholder with your actual AI generation code
             result = await self._generate_with_ai(
                 description=description,
                 genre=genre,
                 art_style=art_style,
-                generation_id=generation_id,
-                progress_callback=progress_callback
+                generation_id=generation_id
             )
             
             return result
@@ -172,8 +167,7 @@ class AIWallpaperGenerator:
         description: str,
         genre: Optional[str],
         art_style: Optional[str],
-        generation_id: str,
-        progress_callback: Optional[Callable[[int], None]] = None
+        generation_id: str
     ) -> Dict[str, Any]:
         """
         Generate wallpaper using Vertex AI Imagen with parameters from frontend.
@@ -185,8 +179,7 @@ class AIWallpaperGenerator:
         
         try:
             # Update progress - preparing request
-            if progress_callback:
-                progress_callback(50)
+            await db_manager.update_job_status(generation_id, "processing", progress=30)
             
             # Build the content prompt using frontend parameters
             content_prompt = self._build_imagen_prompt(description, genre, art_style)
@@ -195,8 +188,7 @@ class AIWallpaperGenerator:
             print(f"📝 Prompt: {content_prompt}")
             
             # Update progress - sending to API
-            if progress_callback:
-                progress_callback(60)
+            await db_manager.update_job_status(generation_id, "processing", progress=50)
             
             # Generate image using Vertex AI Imagen
             response = self.client.models.generate_images(
@@ -208,8 +200,7 @@ class AIWallpaperGenerator:
             )
             
             # Update progress - processing response
-            if progress_callback:
-                progress_callback(80)
+            await db_manager.update_job_status(generation_id, "processing", progress=80)
             
             # Extract image from response
             if not response or not response.generated_images:
@@ -225,17 +216,12 @@ class AIWallpaperGenerator:
             print(f"✅ Image data extracted successfully ({len(image_data)} bytes)")
             
             # Update progress - saving image to database
-            if progress_callback:
-                progress_callback(90)
-            
-            # Update progress to 100% before marking as completed
-            if progress_callback:
-                progress_callback(100)
+            await db_manager.update_job_status(generation_id, "processing", progress=90)
             
             # Save image data to database and set image_url to serve from database
             image_url = f"/image/{generation_id}"
             
-            # Update status to completed with 100% progress
+            # FINAL UPDATE: Mark as completed with 100% progress and image data
             update_success = await db_manager.update_job_status(
                 generation_id,
                 "completed",

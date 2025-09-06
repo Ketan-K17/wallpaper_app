@@ -192,22 +192,6 @@ async def get_recent_generations(limit: int = 10):
     
     return recent_jobs
 
-async def update_progress(generation_id: str, progress: int):
-    """
-    Callback function to update generation progress
-    ONLY updates if status is still processing
-    """
-    job = await db_manager.get_job(generation_id)
-    if not job:
-        return
-    
-    # ONLY update if still processing (prevent overriding completed/failed)
-    if job['status'] == 'processing':
-        await db_manager.update_job_status(
-            generation_id, 
-            "processing", 
-            progress=progress
-        )
 
 async def generate_wallpaper_task(
     generation_id: str,
@@ -220,8 +204,8 @@ async def generate_wallpaper_task(
     Background task to generate wallpaper using AI
     """
     try:
-        # Update status to processing
-        await db_manager.update_job_status(generation_id, "processing", progress=10)
+        # Set initial status to processing - AI generator will handle all progress updates
+        await db_manager.update_job_status(generation_id, "processing", progress=0)
         
         # Prepare generation parameters
         generation_params = {
@@ -232,26 +216,8 @@ async def generate_wallpaper_task(
             "generation_id": generation_id
         }
         
-        # Update progress
-        await db_manager.update_job_status(generation_id, "processing", progress=30)
-        
-        # Create a sync wrapper for the async progress callback
-        def progress_callback_sync(progress):
-            import asyncio
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(update_progress(generation_id, progress))
-                else:
-                    loop.run_until_complete(update_progress(generation_id, progress))
-            except Exception as e:
-                print(f"Error updating progress: {e}")
-        
-        # Call your AI generation function
-        result = await ai_generator.generate_wallpaper(
-            generation_params,
-            progress_callback=progress_callback_sync
-        )
+        # Call AI generation function - it will handle all progress updates and completion
+        result = await ai_generator.generate_wallpaper(generation_params)
         
         if result["success"]:
             # AI generator already updated status to "completed" with image data
