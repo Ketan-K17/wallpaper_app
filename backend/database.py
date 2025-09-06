@@ -164,7 +164,7 @@ class DatabaseManager:
                     affected = int(result.split()[-1]) if result.split() else 0
                     print(f"🔄 Database update: {affected} rows affected for {generation_id}")
                     print(f"🔍 Update query: {query}")
-                    print(f"🔍 Update params: {params}")
+                    # print(f"🔍 Update params: {params}")
                     
                     # Verify the update by reading back the record
                     verify_row = await conn.fetchrow(

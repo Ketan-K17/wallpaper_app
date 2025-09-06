@@ -172,7 +172,7 @@ class ApiService {
     generationId: string,
     onProgress?: (status: GenerationStatus) => void,
     pollInterval: number = 2000, // 2 seconds
-    maxPollTime: number = 300000 // 5 minutes
+    maxPollTime: number = 60000 // 1 minute
   ): Promise<GenerationStatus> {
     const startTime = Date.now();
 
