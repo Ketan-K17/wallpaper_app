@@ -64,6 +64,8 @@ class GenerationStatus(BaseModel):
     created_at: datetime
     completed_at: Optional[datetime] = None
     description: Optional[str] = None
+    genre: Optional[str] = None
+    art_style: Optional[str] = None
 
 
 @app.get("/")
@@ -190,7 +192,9 @@ async def get_recent_generations(limit: int = 10):
                 "image_url": job['image_url'],
                 "created_at": job['created_at'],
                 "completed_at": job['completed_at'],
-                "description": job['description']
+                "description": job['description'],
+                "genre": job['genre'],
+                "art_style": job['art_style']
             })
     
     return recent_jobs

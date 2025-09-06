@@ -26,6 +26,8 @@ type WallpaperData = GenerationStatus & {
   title?: string;
   subtitle?: string;
   description?: string;
+  genre?: string;
+  art_style?: string;
 };
 
 // Fallback data for demo wallpapers
@@ -92,9 +94,8 @@ export default function WallpaperDetailScreen() {
       // Transform the data for display
       const wallpaperData: WallpaperData = {
         ...generationStatus,
-        title: `AI Wallpaper ${id.slice(-6)}`,
+        title: generationStatus.description || `AI Wallpaper ${id.slice(-6)}`,
         subtitle: new Date(generationStatus.created_at).toLocaleDateString(),
-        description: 'Custom AI-generated wallpaper created just for you.',
       };
 
       setWallpaper(wallpaperData);
@@ -330,6 +331,24 @@ export default function WallpaperDetailScreen() {
           <Text style={[styles.infoText, { color: colors.placeholder }]}>
             {wallpaper.description || 'AI-generated wallpaper created with advanced machine learning algorithms. Perfect for your device with high-quality resolution and unique artistic style.'}
           </Text>
+
+          {/* Genre and Art Style */}
+          {wallpaper.genre || wallpaper.art_style ? (
+            <View style={styles.detailsContainer}>
+              {wallpaper.genre && (
+                <View style={[styles.detailItem, { backgroundColor: 'rgba(128, 128, 128, 0.1)' }]}>
+                  <Text style={[styles.detailLabel, { color: colors.placeholder }]}>Genre</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{wallpaper.genre}</Text>
+                </View>
+              )}
+              {wallpaper.art_style && (
+                <View style={[styles.detailItem, { backgroundColor: 'rgba(128, 128, 128, 0.1)' }]}>
+                  <Text style={[styles.detailLabel, { color: colors.placeholder }]}>Art Style</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{wallpaper.art_style}</Text>
+                </View>
+              )}
+            </View>
+          ) : null}
           
           {wallpaper.generation_id && !wallpaper.generation_id.startsWith('fallback-') && (
             <View style={styles.generationInfo}>
@@ -512,5 +531,22 @@ const styles = StyleSheet.create({
   generationId: {
     fontSize: 14,
     fontFamily: 'monospace',
+  },
+  detailsContainer: {
+    marginTop: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  detailItem: {
+    padding: 12,
+    borderRadius: 8,
+  },
+  detailLabel: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

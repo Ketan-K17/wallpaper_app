@@ -28,6 +28,8 @@ export interface GenerationStatus {
   created_at: string;
   completed_at?: string;
   description?: string;
+  genre?: string;
+  art_style?: string;
 }
 
 export interface RecentGeneration {
@@ -37,6 +39,8 @@ export interface RecentGeneration {
   created_at: string;
   completed_at: string;
   description?: string;
+  genre?: string;
+  art_style?: string;
 }
 
 class ApiService {
