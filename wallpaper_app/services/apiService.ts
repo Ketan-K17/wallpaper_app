@@ -27,6 +27,7 @@ export interface GenerationStatus {
   error_message?: string;
   created_at: string;
   completed_at?: string;
+  description?: string;
 }
 
 export interface RecentGeneration {
@@ -35,6 +36,7 @@ export interface RecentGeneration {
   image_url: string;
   created_at: string;
   completed_at: string;
+  description?: string;
 }
 
 class ApiService {

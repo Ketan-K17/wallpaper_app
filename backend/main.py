@@ -63,6 +63,7 @@ class GenerationStatus(BaseModel):
     error_message: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
+    description: Optional[str] = None
 
 
 @app.get("/")
@@ -126,7 +127,8 @@ async def get_generation_status(generation_id: str):
         image_url=job['image_url'],
         error_message=job['error_message'],
         created_at=job['created_at'] if isinstance(job['created_at'], datetime) else datetime.fromisoformat(job['created_at']),
-        completed_at=job['completed_at'] if isinstance(job['completed_at'], datetime) else datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None
+        completed_at=job['completed_at'] if isinstance(job['completed_at'], datetime) else datetime.fromisoformat(job['completed_at']) if job['completed_at'] else None,
+        description=job['description']
     )
 
 @app.get("/image/{generation_id}")
@@ -187,7 +189,8 @@ async def get_recent_generations(limit: int = 10):
                 "status": job['status'],
                 "image_url": job['image_url'],
                 "created_at": job['created_at'],
-                "completed_at": job['completed_at']
+                "completed_at": job['completed_at'],
+                "description": job['description']
             })
     
     return recent_jobs
