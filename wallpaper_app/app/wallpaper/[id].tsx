@@ -148,7 +148,12 @@ export default function WallpaperDetailScreen() {
       let downloadUrl: string;
       if (wallpaper.generation_id.startsWith('fallback-')) {
         // For fallback wallpapers, use the direct URL
-        downloadUrl = wallpaper.image_url;
+        if (wallpaper.image_url) {
+          downloadUrl = wallpaper.image_url;
+        } else {
+          setError('Image URL is not available');
+          return;
+        }
       } else {
         // For generated wallpapers, use the API download endpoint
         downloadUrl = apiService.getDownloadUrl(wallpaper.generation_id);
@@ -176,11 +181,11 @@ export default function WallpaperDetailScreen() {
     try {
       const imageUrl = wallpaper.generation_id.startsWith('fallback-') 
         ? wallpaper.image_url 
-        : apiService.getImageUrl(wallpaper.image_url);
+        : apiService.getImageUrl(wallpaper.image_url || '');
         
       await Share.share({
         message: `Check out this amazing AI wallpaper: ${wallpaper.title || 'Custom AI Wallpaper'}`,
-        url: imageUrl,
+        url: imageUrl || '',
       });
     } catch (error) {
       console.error('Share error:', error);
@@ -199,7 +204,7 @@ export default function WallpaperDetailScreen() {
     if (!wallpaper) return '';
     return wallpaper.generation_id.startsWith('fallback-') 
       ? wallpaper.image_url 
-      : apiService.getImageUrl(wallpaper.image_url);
+      : apiService.getImageUrl(wallpaper.image_url || '');
   };
 
   const getCreatedDate = () => {
@@ -209,8 +214,11 @@ export default function WallpaperDetailScreen() {
 
   const getCreatedTime = () => {
     if (!wallpaper?.created_at) return 'Unknown';
-    return new Date(wallpaper.created_at).toLocaleTimeString();
+    return new Date(wallpaper.created_at).toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+    });
   };
+  
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
